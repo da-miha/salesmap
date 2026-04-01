@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SalesMap — 営業支援AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Syne:wght@800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07070e;--bg2:#0e0e1b;--bg3:#15152a;
+  --card:#0b0b18;--border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.13);
+  --text:#dde0f0;--text2:#7a7da0;--text3:#3a3b5a;
+  --accent:#5b5bd6;--accent2:#9b8fef;
+  --teal:#22d3c8;--coral:#f06565;--amber:#f5be45;--green:#30d98a;
+  --r:14px;--rsm:9px;
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Noto Sans JP',sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;font-size:14px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* noise */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+}
+
+/* header */
+header{
+  position:sticky;top:0;z-index:50;
+  height:54px;padding:0 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(7,7,14,.88);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+.logo{
+  font-family:'Syne',sans-serif;font-weight:800;font-size:17px;
+  background:linear-gradient(135deg,var(--accent2),var(--teal));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hpill{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 12px;border:1px solid var(--border2);border-radius:99px;
+  font-size:11px;color:var(--text2);background:var(--bg3);cursor:pointer;
+  transition:border-color .2s;
+}
+.hpill:hover{border-color:var(--border2)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--text3);transition:all .3s}
+.dot.on{background:var(--green);box-shadow:0 0 7px var(--green)}
+
+/* setup overlay */
+#setup{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(7,7,14,.96);backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;
+  padding:24px;
+}
+.setup-box{
+  background:var(--bg2);border:1px solid var(--border2);
+  border-radius:var(--r);padding:32px 28px;
+  width:100%;max-width:480px;
+}
+.setup-title{
+  font-family:'Syne',sans-serif;font-weight:800;font-size:20px;
+  margin-bottom:6px;
+}
+.setup-sub{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px}
+.setup-sub a{color:var(--accent2);text-decoration:none}
+.setup-sub a:hover{text-decoration:underline}
+.setup-steps{
+  background:var(--bg3);border-radius:var(--rsm);
+  padding:14px 16px;margin-bottom:20px;
+}
+.setup-step{
+  font-size:12px;color:var(--text2);padding:5px 0;
+  display:flex;gap:10px;align-items:flex-start;
+  border-bottom:1px solid var(--border);
+}
+.setup-step:last-child{border-bottom:none}
+.setup-step-num{
+  color:var(--accent2);font-weight:700;font-size:11px;
+  width:18px;flex-shrink:0;padding-top:1px;
+}
+.kinput{
+  width:100%;
+  background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rsm);
+  padding:11px 14px;
+  font-family:'Courier New',monospace;font-size:13px;color:var(--text);
+  outline:none;transition:border-color .2s;margin-bottom:10px;
+}
+.kinput:focus{border-color:var(--accent)}
+.kinput::placeholder{color:var(--text3);font-family:'Noto Sans JP',sans-serif}
+.kbtn{
+  width:100%;padding:12px;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);
+  border:none;border-radius:var(--rsm);
+  font-family:'Noto Sans JP',sans-serif;
+  font-size:14px;font-weight:700;color:#fff;
+  cursor:pointer;transition:opacity .2s;
+}
+.kbtn:hover{opacity:.88}
+.knote{font-size:11px;color:var(--text3);margin-top:8px;text-align:center}
+
+/* main */
+.wrap{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:32px 20px 90px}
+
+/* mode tabs */
+.tabs{
+  display:flex;gap:4px;background:var(--bg2);
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:4px;margin-bottom:26px;
+}
+.tab{
+  flex:1;padding:9px 10px;border-radius:var(--rsm);
+  border:none;background:transparent;
+  font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;
+  color:var(--text2);cursor:pointer;transition:all .18s;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.tab.on{background:var(--bg3);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.tab:hover:not(.on){color:var(--text)}
+
+/* label */
+.lbl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:9px}
+
+/* phases */
+.phases{margin-bottom:20px}
+.phase-row{display:flex;flex-wrap:wrap;gap:7px}
+.pbtn{
+  padding:6px 13px;border:1px solid var(--border2);border-radius:99px;
+  background:transparent;font-family:'Noto Sans JP',sans-serif;
+  font-size:12px;color:var(--text2);cursor:pointer;transition:all .14s;
+}
+.pbtn:hover{color:var(--accent2);border-color:var(--accent)}
+.pbtn.on{background:rgba(91,91,214,.16);border-color:var(--accent);color:var(--accent2);font-weight:500}
+
+/* input */
+.icard{
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:var(--r);margin-bottom:10px;transition:border-color .2s;
+}
+.icard:focus-within{border-color:var(--accent)}
+.icard textarea{
+  width:100%;min-height:85px;background:transparent;border:none;outline:none;
+  padding:15px 17px 10px;
+  font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);
+  line-height:1.65;resize:none;
+}
+.icard textarea::placeholder{color:var(--text3)}
+.ifoot{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-top:1px solid var(--border);
+}
+.ihint{font-size:11px;color:var(--text3)}
+
+/* go button */
+.gobtn{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 20px;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);
+  border:none;border-radius:var(--rsm);
+  font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;color:#fff;
+  cursor:pointer;transition:opacity .2s,transform .1s;
+}
+.gobtn:hover{opacity:.88}
+.gobtn:active{transform:scale(.97)}
+.gobtn:disabled{opacity:.35;cursor:not-allowed}
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .65s linear infinite;display:none}
+.gobtn.loading .spin{display:block}
+.gobtn.loading .glbl{display:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* quick tags */
+.qtags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px}
+.qtag{
+  padding:4px 10px;border:1px solid var(--border);border-radius:99px;
+  background:transparent;font-family:'Noto Sans JP',sans-serif;
+  font-size:11px;color:var(--text3);cursor:pointer;transition:all .14s;
+}
+.qtag:hover{color:var(--text2);border-color:var(--border2)}
+
+/* result */
+#result{display:none}
+#result.show{display:block;animation:rise .28s ease}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* cause banner */
+.cause{
+  display:flex;align-items:flex-start;gap:12px;
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:var(--r);padding:17px 19px;margin-bottom:13px;
+}
+.cbadge{
+  flex-shrink:0;padding:4px 11px;border-radius:99px;
+  font-size:11px;font-weight:700;letter-spacing:.03em;
+  white-space:nowrap;margin-top:2px;
+}
+.cbadge.guard {background:rgba(240,101,101,.14);color:var(--coral);border:1px solid rgba(240,101,101,.24)}
+.cbadge.under {background:rgba(155,143,239,.14);color:var(--accent2);border:1px solid rgba(155,143,239,.24)}
+.cbadge.sat   {background:rgba(245,190,69,.14);color:var(--amber);border:1px solid rgba(245,190,69,.24)}
+.cbadge.timing{background:rgba(34,211,200,.14);color:var(--teal);border:1px solid rgba(34,211,200,.24)}
+.cbody{flex:1}
+.ctitle{font-size:13px;font-weight:700;margin-bottom:3px}
+.cdesc{font-size:12px;color:var(--text2);line-height:1.65}
+
+/* response cards */
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:16px}
+.rcard{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:15px;cursor:pointer;
+  transition:border-color .18s,transform .14s;position:relative;overflow:hidden;
+}
+.rcard::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .18s}
+.rcard.A::after{background:var(--teal)}
+.rcard.B::after{background:var(--accent2)}
+.rcard.C::after{background:var(--amber)}
+.rcard:hover{border-color:var(--border2);transform:translateY(-2px)}
+.rcard:hover::after{opacity:1}
+.rcard.copied{border-color:var(--green) !important}
+.rchead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.rctype{font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 8px;border-radius:99px}
+.rctype.A{background:rgba(34,211,200,.12);color:var(--teal)}
+.rctype.B{background:rgba(155,143,239,.12);color:var(--accent2)}
+.rctype.C{background:rgba(245,190,69,.12);color:var(--amber)}
+.rccopy{
+  padding:3px 9px;font-size:10px;color:var(--text3);
+  border:1px solid var(--border);border-radius:99px;
+  background:transparent;cursor:pointer;
+  font-family:'Noto Sans JP',sans-serif;transition:all .14s;
+}
+.rccopy:hover{color:var(--text2);border-color:var(--border2)}
+.rctext{font-size:13px;color:var(--text);line-height:1.7;margin-bottom:9px}
+.rcwhy{font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding-top:7px;line-height:1.6}
+.psychpill{
+  display:inline-block;margin-top:5px;
+  padding:2px 8px;border-radius:99px;font-size:10px;
+  background:rgba(91,91,214,.1);color:var(--accent2);
+  border:1px solid rgba(91,91,214,.18);
+}
+
+/* route */
+.rtheader{
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:var(--r) var(--r) 0 0;padding:15px 19px;margin-bottom:1px;
+}
+.rttype{font-size:15px;font-weight:700;margin-bottom:3px}
+.rtdesc{font-size:12px;color:var(--text2)}
+.rtsteps{display:flex;flex-direction:column;gap:1px;margin-bottom:13px}
+.rtstep{
+  background:var(--card);border:1px solid var(--border);
+  padding:13px 17px;display:flex;gap:13px;align-items:flex-start;
+}
+.rtstep:last-child{border-radius:0 0 var(--r) var(--r)}
+.stepnum{
+  flex-shrink:0;width:25px;height:25px;border-radius:50%;
+  background:rgba(91,91,214,.18);border:1px solid rgba(91,91,214,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:var(--accent2);margin-top:1px;
+}
+.stepbody{flex:1}
+.stepaction{font-size:13px;font-weight:500;margin-bottom:4px}
+.stepex{
+  font-size:12px;color:var(--text2);background:var(--bg3);
+  border-left:2px solid var(--accent);padding:6px 10px;
+  border-radius:0 var(--rsm) var(--rsm) 0;margin-bottom:4px;line-height:1.65;
+}
+.stepwhy{font-size:11px;color:var(--text3)}
+.rtavoid{
+  background:rgba(240,101,101,.06);border:1px solid rgba(240,101,101,.15);
+  border-radius:var(--r);padding:12px 15px;
+  font-size:12px;color:var(--coral);line-height:1.65;
+}
+.rtavoid strong{font-size:11px;font-weight:700;display:block;margin-bottom:3px;opacity:.7}
+
+/* feedback */
+.fbbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-top:14px}
+.fblbl{font-size:11px;color:var(--text3)}
+.fbbtn{
+  padding:5px 11px;border-radius:99px;border:1px solid var(--border2);
+  background:transparent;font-family:'Noto Sans JP',sans-serif;
+  font-size:11px;color:var(--text2);cursor:pointer;transition:all .14s;
+}
+.fbbtn:hover{border-color:var(--green);color:var(--green)}
+.fbbtn.bad:hover{border-color:var(--coral);color:var(--coral)}
+.fbsaved{font-size:11px;color:var(--green);display:none}
+
+/* history */
+#hist{margin-top:42px;display:none}
+#hist.show{display:block}
+.histhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.histtitle{font-size:13px;font-weight:700}
+.clrbtn{font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:var(--rsm);transition:color .14s}
+.clrbtn:hover{color:var(--coral)}
+.hlist{display:flex;flex-direction:column;gap:6px}
+.hitem{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--rsm);padding:11px 14px;
+  display:flex;gap:11px;align-items:flex-start;cursor:pointer;transition:border-color .14s;
+}
+.hitem:hover{border-color:var(--border2)}
+.hphase{font-size:10px;font-weight:700;color:var(--accent2);white-space:nowrap;margin-top:2px}
+.htext{font-size:12px;color:var(--text2);flex:1}
+.hcause{font-size:10px;color:var(--text3);white-space:nowrap;margin-top:2px}
+
+/* toast */
+#toast{
+  position:fixed;bottom:24px;left:50%;
+  transform:translateX(-50%) translateY(14px);
+  background:var(--bg3);border:1px solid var(--border2);
+  padding:9px 20px;border-radius:99px;
+  font-size:12px;color:var(--text);
+  opacity:0;transition:all .22s;pointer-events:none;z-index:999;white-space:nowrap;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+@media(max-width:520px){
+  .wrap{padding:22px 14px 80px}
+  .rgrid{grid-template-columns:1fr}
+  .tabs{gap:3px}
+  .tab{font-size:12px;padding:8px 8px}
+}
+</style>
+</head>
+<body>
+
+<!-- APIキー設定オーバーレイ -->
+<div id="setup">
+  <div class="setup-box">
+    <div class="setup-title">SalesMap へようこそ</div>
+    <p class="setup-sub">
+      AIによる返し生成を使うには Claude の APIキーが必要です。<br>
+      まだ持っていない方は下の手順で無料取得できます。
+    </p>
+    <div class="setup-steps">
+      <div class="setup-step">
+        <span class="setup-step-num">1</span>
+        <span><a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a> を開く（Googleアカウントで登録）</span>
+      </div>
+      <div class="setup-step">
+        <span class="setup-step-num">2</span>
+        <span>左メニューの「API Keys」→「Create Key」をクリック</span>
+      </div>
+      <div class="setup-step">
+        <span class="setup-step-num">3</span>
+        <span>表示された <strong style="color:var(--accent2)">sk-ant-...</strong> のキーをコピーして下に貼り付ける</span>
+      </div>
+    </div>
+    <input type="password" class="kinput" id="keyInput" placeholder="sk-ant-api03-xxxxxxxxxx..." />
+    <button class="kbtn" onclick="saveKey()">設定して始める →</button>
+    <p class="knote">キーはこのブラウザのみに保存されます。外部に送信されません。</p>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">SalesMap</div>
+  <div class="hpill" onclick="showSetup()">
+    <div class="dot" id="dot"></div>
+    <span id="connlbl">未設定</span>
+  </div>
+</header>
+
+<!-- Main -->
+<div class="wrap">
+
+  <!-- Mode tabs -->
+  <div class="tabs">
+    <button class="tab on" id="tabA" onclick="setMode('analyze')">
+      ⚡ 詰まり解決
+    </button>
+    <button class="tab" id="tabR" onclick="setMode('route')">
+      🗺 トークルート設計
+    </button>
+  </div>
+
+  <!-- Phase -->
+  <div class="phases">
+    <p class="lbl">今のフェーズ</p>
+    <div class="phase-row" id="phaseRow">
+      <button class="pbtn" onclick="setPhase(this,'①接触')">①接触</button>
+      <button class="pbtn" onclick="setPhase(this,'②興味付け')">②興味付け</button>
+      <button class="pbtn" onclick="setPhase(this,'③ヒアリング')">③ヒアリング</button>
+      <button class="pbtn" onclick="setPhase(this,'④課題自覚')">④課題自覚</button>
+      <button class="pbtn" onclick="setPhase(this,'⑤解決策提示')">⑤解決策提示</button>
+      <button class="pbtn" onclick="setPhase(this,'⑥クロージング')">⑥クロージング</button>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <p class="lbl" id="ilbl">顧客の反応</p>
+  <div class="icard">
+    <textarea id="rtxt" placeholder="顧客が言ったこと・反応を入力&#10;例：「今ので困ってない」「忙しい」「興味ない」"></textarea>
+    <div class="ifoot">
+      <span class="ihint" id="ihint">タグをタップでも入力できます</span>
+      <button class="gobtn" id="goBtn" onclick="run()">
+        <div class="spin"></div>
+        <span class="glbl" id="glbl">解析する →</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick tags -->
+  <div class="qtags" id="qtags">
+    <span style="font-size:10px;color:var(--text3);line-height:26px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;">よくある：</span>
+    <button class="qtag" onclick="fill('興味ない')">興味ない</button>
+    <button class="qtag" onclick="fill('今ので困ってない')">今ので困ってない</button>
+    <button class="qtag" onclick="fill('忙しい')">忙しい</button>
+    <button class="qtag" onclick="fill('検討します')">検討します</button>
+    <button class="qtag" onclick="fill('お金がない')">お金がない</button>
+    <button class="qtag" onclick="fill('上司に聞かないと')">上司に聞かないと</button>
+    <button class="qtag" onclick="fill('他と比べたい')">他と比べたい</button>
+    <button class="qtag" onclick="fill('今は時期じゃない')">今は時期じゃない</button>
+  </div>
+
+  <!-- Result -->
+  <div id="result"></div>
+
+  <!-- History -->
+  <div id="hist">
+    <div class="histhd">
+      <span class="histtitle">履歴</span>
+      <button class="clrbtn" onclick="clearHist()">全削除</button>
+    </div>
+    <div class="hlist" id="hlist"></div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────
+let mode = 'analyze', phase = '', lastResult = null;
+const hist = JSON.parse(localStorage.getItem('sm_hist') || '[]');
+
+// ── Init ──────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const k = localStorage.getItem('sm_key');
+  if (k) { document.getElementById('setup').style.display = 'none'; setDot(true); }
+  renderHist();
+  document.getElementById('rtxt').addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') run();
+  });
+});
+
+// ── Key ───────────────────────────────────────────
+function saveKey() {
+  const v = document.getElementById('keyInput').value.trim();
+  if (!v.startsWith('sk-ant')) { toast('キーの形式が違います（sk-ant... で始まるもの）'); return; }
+  localStorage.setItem('sm_key', v);
+  document.getElementById('setup').style.display = 'none';
+  setDot(true);
+  toast('設定しました ✓');
+}
+function showSetup() {
+  const k = localStorage.getItem('sm_key') || '';
+  document.getElementById('keyInput').value = k;
+  document.getElementById('setup').style.display = 'flex';
+}
+function setDot(on) {
+  document.getElementById('dot').className = 'dot' + (on ? ' on' : '');
+  document.getElementById('connlbl').textContent = on ? 'AI接続済み' : '未設定';
+}
+
+// ── Mode ──────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('tabA').classList.toggle('on', m === 'analyze');
+  document.getElementById('tabR').classList.toggle('on', m === 'route');
+  document.getElementById('qtags').style.display = m === 'analyze' ? 'flex' : 'none';
+  document.getElementById('ilbl').textContent = m === 'analyze' ? '顧客の反応' : '顧客の特徴・状況';
+  document.getElementById('rtxt').placeholder = m === 'analyze'
+    ? '顧客が言ったこと・反応を入力\n例：「今ので困ってない」「忙しい」「興味ない」'
+    : '顧客の属性・状況を入力\n例：「40代・現状に満足してそう・価格を気にしている」';
+  document.getElementById('glbl').textContent = m === 'analyze' ? '解析する →' : 'ルート設計 →';
+  document.getElementById('result').className = '';
+  document.getElementById('result').style.display = 'none';
+}
+
+// ── Phase ─────────────────────────────────────────
+function setPhase(el, p) {
+  document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on'); phase = p;
+}
+function fill(t) { document.getElementById('rtxt').value = t; document.getElementById('rtxt').focus(); }
+
+// ── Run ───────────────────────────────────────────
+async function run() {
+  const reaction = document.getElementById('rtxt').value.trim();
+  if (!reaction) { toast('顧客の反応を入力してください'); return; }
+  if (!phase)    { toast('フェーズを選択してください'); return; }
+  const key = localStorage.getItem('sm_key');
+  if (!key) { showSetup(); return; }
+
+  const btn = document.getElementById('goBtn');
+  btn.classList.add('loading'); btn.disabled = true;
+
+  const prompts = {
+    analyze: `あなたは営業トレーナーAIです。\n\n## 状況\n- 営業フェーズ：${phase}\n- 顧客の反応：「${reaction}」\n\n## 指示\n以下のJSON形式のみで回答してください（前後に説明文・コードブロック記号は不要）：\n\n{"causeType":"警戒・ガード か 理解不足 か 現状満足 か タイミング・面倒 のいずれか","causeDesc":"なぜこの反応が出たか（50文字以内）","responses":[{"type":"A｜共感型","text":"実際に使えるセリフ（自然な話し言葉）","why":"なぜ効くか20文字以内","psych":"心理法則名"},{"type":"B｜質問型","text":"セリフ","why":"なぜ効くか","psych":"心理法則名"},{"type":"C｜提案型","text":"セリフ","why":"なぜ効くか","psych":"心理法則名"}]}`,
+    route: `あなたは営業戦略AIです。\n\n## 状況\n- 営業フェーズ：${phase}\n- 顧客の特徴：「${reaction}」\n\n## 指示\n以下のJSON形式のみで回答してください（前後に説明文不要）：\n\n{"customerType":"顧客タイプ名","typeDesc":"このタイプの特徴40文字以内","route":[{"step":1,"action":"何をするか","example":"実際のセリフ例","why":"なぜこの順番か"},{"step":2,"action":"何をするか","example":"セリフ例","why":"理由"},{"step":3,"action":"何をするか","example":"セリフ例","why":"理由"},{"step":4,"action":"何をするか","example":"セリフ例","why":"理由"}],"avoid":"絶対避けるべきNG例"}`
+  };
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompts[mode] }]
+      })
+    });
+    if (!res.ok) {
+      const e = await res.json();
+      throw new Error(e.error?.message || 'APIエラー（ステータス ' + res.status + '）');
+    }
+    const data = await res.json();
+    const raw = data.content[0].text;
+    const m2 = raw.match(/\{[\s\S]*\}/);
+    if (!m2) throw new Error('レスポンス解析失敗');
+    const result = JSON.parse(m2[0]);
+    lastResult = { phase, reaction, mode, ...result };
+    mode === 'analyze' ? renderAnalyze(result) : renderRoute(result);
+    pushHist(lastResult);
+  } catch (e) {
+    toast('エラー: ' + e.message);
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+// ── Render: Analyze ────────────────────────────────
+const CCFG = {
+  '警戒・ガード':    { cls:'guard',  icon:'🛡️' },
+  '理解不足':        { cls:'under',  icon:'💡' },
+  '現状満足':        { cls:'sat',    icon:'😌' },
+  'タイミング・面倒':{ cls:'timing', icon:'⏰' },
+};
+const TCLS = { 'A｜共感型':'A', 'B｜質問型':'B', 'C｜提案型':'C' };
+
+function renderAnalyze(d) {
+  const cfg = CCFG[d.causeType] || CCFG['警戒・ガード'];
+  const cards = (d.responses || []).map(r => {
+    const tc = TCLS[r.type] || 'A';
+    return `<div class="rcard ${tc}">
+      <div class="rchead">
+        <span class="rctype ${tc}">${e(r.type)}</span>
+        <button class="rccopy" onclick="cp(this,${JSON.stringify(r.text)})">コピー</button>
+      </div>
+      <div class="rctext">${e(r.text)}</div>
+      <div class="rcwhy">
+        <strong style="color:var(--text2)">なぜ効くか：</strong>${e(r.why)}
+        <div><span class="psychpill">${e(r.psych)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  const el = document.getElementById('result');
+  el.innerHTML = `
+    <div class="cause">
+      <span class="cbadge ${cfg.cls}">${cfg.icon} ${e(d.causeType)}</span>
+      <div class="cbody">
+        <div class="ctitle">原因の分析</div>
+        <div class="cdesc">${e(d.causeDesc)}</div>
+      </div>
+    </div>
+    <div class="rgrid">${cards}</div>
+    <div class="fbbar">
+      <span class="fblbl">使った返しの効果：</span>
+      <button class="fbbtn" onclick="fb('A','効果あり')">A 効果あり</button>
+      <button class="fbbtn" onclick="fb('B','効果あり')">B 効果あり</button>
+      <button class="fbbtn" onclick="fb('C','効果あり')">C 効果あり</button>
+      <button class="fbbtn bad" onclick="fb('','効果なし')">効果なし</button>
+      <span class="fbsaved" id="fbsaved">記録しました ✓</span>
+    </div>`;
+  show();
+}
+
+// ── Render: Route ─────────────────────────────────
+function renderRoute(d) {
+  const steps = (d.route || []).map(s => `
+    <div class="rtstep">
+      <div class="stepnum">${s.step}</div>
+      <div class="stepbody">
+        <div class="stepaction">${e(s.action)}</div>
+        <div class="stepex">「${e(s.example)}」</div>
+        <div class="stepwhy">${e(s.why)}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('result').innerHTML = `
+    <div class="rtheader">
+      <div class="rttype">${e(d.customerType)}</div>
+      <div class="rtdesc">${e(d.typeDesc)}</div>
+    </div>
+    <div class="rtsteps">${steps}</div>
+    <div class="rtavoid"><strong>NG：避けるべきトーク</strong>${e(d.avoid)}</div>`;
+  show();
+}
+
+function show() {
+  const el = document.getElementById('result');
+  el.style.display = 'block';
+  el.classList.add('show');
+  el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ── Utils ─────────────────────────────────────────
+function e(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function cp(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const card = btn.closest('.rcard');
+    card.classList.add('copied');
+    btn.textContent = '✓ コピー済';
+    setTimeout(() => { card.classList.remove('copied'); btn.textContent = 'コピー'; }, 2000);
+  });
+}
+function fb(pattern, result) {
+  if (!lastResult) return;
+  const all = JSON.parse(localStorage.getItem('sm_fb') || '[]');
+  all.push({ ...lastResult, pattern, result, ts: Date.now() });
+  localStorage.setItem('sm_fb', JSON.stringify(all));
+  const el = document.getElementById('fbsaved');
+  if (el) el.style.display = 'inline';
+  toast(pattern ? `パターン${pattern}「${result}」を記録しました` : `「${result}」を記録しました`);
+}
+
+// ── History ───────────────────────────────────────
+function pushHist(item) {
+  hist.unshift({ ...item, ts: Date.now() });
+  if (hist.length > 20) hist.pop();
+  localStorage.setItem('sm_hist', JSON.stringify(hist));
+  renderHist();
+}
+function renderHist() {
+  const sec = document.getElementById('hist');
+  const list = document.getElementById('hlist');
+  if (!hist.length) { sec.classList.remove('show'); return; }
+  sec.classList.add('show');
+  list.innerHTML = hist.slice(0,8).map((h,i) => `
+    <div class="hitem" onclick="restoreHist(${i})">
+      <div class="hphase">${e(h.phase)}</div>
+      <div class="htext">${e(h.reaction)}</div>
+      <div class="hcause">${e(h.causeType||h.customerType||'')}</div>
+    </div>`).join('');
+}
+function restoreHist(i) {
+  const h = hist[i];
+  setMode(h.mode||'analyze');
+  document.querySelectorAll('.pbtn').forEach(b => b.classList.toggle('on', b.textContent === h.phase));
+  phase = h.phase;
+  document.getElementById('rtxt').value = h.reaction;
+  if (h.mode === 'route') renderRoute(h); else renderAnalyze(h);
+}
+function clearHist() {
+  hist.length = 0; localStorage.removeItem('sm_hist');
+  renderHist(); toast('履歴を削除しました');
+}
+
+// ── Toast ─────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>
